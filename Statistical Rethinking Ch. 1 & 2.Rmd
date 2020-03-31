@@ -1,0 +1,14 @@
+---
+title: "Statistical_Rethinking_Ch1,2"
+author: "sbsambado"
+date: "3/30/2020"
+output: html_document
+---
+# install rethink R package
+```{r}
+install.packages(c('coda', 'mvtnorm', 'devtools', 'dagitty'))
+library(devtools)
+
+devtools :: install_github('rmcelreath/rethinking')
+```
+
