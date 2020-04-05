@@ -1,5 +1,5 @@
 ---
-title: "Statistical_Rethinking_Ch1,2"
+title: "Statistical_Rethinking_uploading Rstan"
 author: "sbsambado"
 date: "3/30/2020"
 output: html_document
