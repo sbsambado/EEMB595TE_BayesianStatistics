@@ -1,0 +1,120 @@
+---
+title: "Statistical Rethinking love letter"
+author: "sbsambado"
+date: "4/5/2020"
+output: html_document
+---
+
+Statistical rethinking with brms, ggplot2, and the tidyverse
+
+version 1.01
+
+A Solomon Kurz
+2019- 05-05
+
+I am going to work through code based on McClreath's Statistical rethinking text
+
+Tips
+
+- Make explicit the package a given function comes from, insert double-colon operator '::' between the package name and the function (e.g. tidybayes::mode_hdi())
+- model names m4.1 (i.e. the first model of ch 4), or b4.1 (for brms package)
+
+*italic*
+**bold**
+`grey shade`
+
+Chapter 2: Small worlds and large world
+```{r}
+# library(tidyverse)
+
+# tibble as a data object with 2 dimensions defined by rows and columns, they're just special types of data frames
+
+# a 4 x 5 tibble
+d <-
+  tibble(p_1 = 0,
+         p_2 = rep(1:0, times = c(1,3)),
+         p_3 = rep(1:0, times = c(2,2)),
+         p_4 = rep(1:0, times = c(3,1)),
+         p_5 = 1)
+head(d)
+
+# plot the possibility data
+d %>%
+  gather() %>%
+  mutate(x = rep(1:4, times = 5),
+         possibility = rep(1:5, each = 4)) %>%
+  
+  ggplot(aes(x = x, y = possibility,
+             fill = value %>% as.character())) +
+  geom_point(shape = 21, size = 5) +
+  scale_fill_manual(values = c('white', 'navy')) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(.75, 4.25),
+                  ylim = c(.75, 5.25)) +
+  theme(legend.position = 'none')
+
+# transforming columns into the right shape use dplyr::mutate() and dplyr::gather()
+
+tibble(draw = 1:3,
+       marbles = 4) %>%
+  mutate(possibilites = marbles^draw) %>%
+  knitr::kable()
+
+```
+
+2.1.2 Using prior information
+We may have prior information about the relative plausibility of each conjecture. This prior information could arise from knowledge of how the contents of the bag were generated. It would also arise from previous data. Or we might want to act as if we had prior information, so we can build conservatism into the analysis. Whatever the source, it would help to havea  way to use piror information. Luckily there is a natural solution: Just multiply the prior count by the new count.
+
+2.2 Building a model
+```{r}
+(d <- tibble(toss = c('w', 'l', 'w','w','w','l','w','l','w')))
+
+# 2.2.2 Bayesian updating
+( d <-
+    d %>%
+    mutate(n_trials = 1:9,
+           n_success = cumsum(toss == 'w'))
+  )
+```
+
+2.3 Components of the model
+1.  likelihood function: the number of ways each conjecture could produce an observation
+2. one or more parameters: the accumulated numbers of ways each conjecture cold produce the entire data
+3. a prior: the initial plausibility of each conjectured cause of data
+```{r}
+# 2.3.1 Likelihood
+
+dbinom(x = 6, size = 9, prob = 0.5)
+
+# let's change values of prob
+
+tibble(prob = seq(0, 1, 0.01)) %>%
+  ggplot(aes(x = prob, 
+             y = dbinom(x = 6, size = 9, prob = prob))) +
+  geom_line() +
+  labs(x = 'probability', y = 'binomial likelihood') +
+  theme(panel.grid = element_blank())
+```
+
+2.3.3 Prior
+Priors are engineering assumptions, chosen to help the machine learn. Priors that gently nudge the machine usually improve inference. Such priors are sometimes called regularizing or weakly informative priors. 
+
+
+2.4.3 Markov chain monte carlo
+```{r}
+#install.packages('brms')
+#library(brms)
+
+# re-fir the last model
+
+globe_qa_brms <-
+  brm(data = list(w = 24),
+      family = binomial(link = 'identity'),
+      w | trials(36) ~ 1,
+      prior(beta(1,1), class = Intercept),
+      iter = 4000, warmup = 1000,
+      control = list(adapt_delt = 0.9),
+      seed = 4)
+print(globe_qa_brms)
+```
+
