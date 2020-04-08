@@ -1,0 +1,32 @@
+---
+title: "In class examples"
+author: "sbsambado"
+date: "4/8/2020"
+output: html_document
+---
+
+In class examples in EEMB 595TE taught by Dr. Stephen Prouxl
+
+April 7th, 2020
+```{r}
+library(tidyverse)
+
+data = tibble(trial = seq(1,6), outcome = c('W', 'W', 'L', 'W', 'W', 'W'))
+
+
+# grid likelihood
+
+stepsize = 0.01
+likelihood_tab <- tibble(proportion_water = seq(0,1, stepsize), likelihood = 0)
+#View(likelihood_tab)
+
+ntot = nrow(data)
+nwater = nrow(filter(data, outcome == 'W' ))
+
+likelihood_tab <- mutate(likelihood_tab, likelihood = dbinom(nwater, ntot, proporiton_water))
+
+ggplot(data = likelihood_tab, aes(x = proporiton_water, y = likelihood)) +
+  geom_point() +
+  theme_bw() 
+```
+
