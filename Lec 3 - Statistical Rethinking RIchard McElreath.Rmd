@@ -1,0 +1,145 @@
+---
+title: "Lec 3 - Statistical Rethinking Richard McElreath"
+author: "sbsambado"
+date: "4/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Linear regression
+- model of mean and variance of normal (Gaussian) distribution
+- mean as addative combination of weighted variance
+- constant variance
+
+
+  W ~ Binomal(N, p)
+  p ~ Uniform(0,1)
+  
+  
+Kalahar foragers example
+
+Gaussian model (Normal distribution)
+```{r}
+library(rethinking)
+data("Howell1")
+d <- Howell1
+
+precis(d)
+
+
+# prior predictive distribution
+# what do these priors implay about height, before we see data?
+
+sample_mu <- rnorm(1e4, 178, 20)
+sample_sigma <- runif(1e4, 0, 50)
+prior_h <- rnorm(1e4, sample_mu, sample_sigma)
+dens(prior_h)
+```
+
+Quadratic approximation
+- approximate posterior as Gaussian
+- can estimate with two things
+  - peak of posterior, maximum a posteriori (MAP)
+  - standard deviations and correlations of parameters (covariance matrix)
+- with flat priors, same as conventional maximum likelihood estimation
+
+
+Using `quap`
+
+hi ~ Normal(mu, sd)
+mu ~ Normal(178, 20)
+sd ~ Uniform(0,50)
+```{r}
+# R code 4.27
+
+flist <- alist(
+  height ~ dnorm(mu, sigma),
+  mu ~ dnorm(178, 20),
+  sigma ~ dunif(0, 50)
+)
+
+# R code 4.28
+
+m4.1 <- quap(flist, data = d) # define Gaussian distribution
+
+precis(m4.1) # summary command
+
+
+post <- extract.samples(m4.1, n = 1e4)
+head(post)
+```
+
+Scaffolds
+- `quad` is a scaffold
+  - force full specification of model, so you'll learn it
+  - works with a very wide calss of models
+  - same as penalized maximum likelihood
+  - not always a good way to approximate posterior
+  
+  
+Adding a predictor variable
+- how does weight describe height?
+- use a linear model of the mean, mu
+
+hi ~ Normal(mui, sd) [likelihood]
+mui ~ alpha + beta(xi - x_bar) [linear model]
+alpha ~ Normal(178, 20) [alpha prior]
+beta ~ Normal(0,10) [beta prior]
+sd ~ Uniform(0, 50) [sd prior]
+
+```{r}
+
+# R code 4.38
+set.seed(2971)
+N <- 100 # 100 lines
+a <- rnorm(N, 178, 20)
+b <- rnorm(N, 0, 10)
+
+
+# R code 4.40
+# log distributed data how to make data not negative
+# log distribution is normal when you log it (so you have all positive real values)
+b <- rlnorm(1e4, 0, 1)
+dens(b, xlim = c(0,5), adj = 0.1)
+
+set.seed(2971)
+N <- 100 # 100 lines
+a <- rnorm(N, 178, 20)
+b <- rnorm(N, 0, 1)
+
+```
+
+Approximate the posterior
+```{r}
+# R code 4.42
+
+data("Howell1")
+d <- Howell1
+d2 <- d[d$age >= 18,] # all adults
+
+# define average weight, x-bar
+xbar <- mean(d2$weight)
+
+# fit model
+m4.3 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*(weight - xbar), # log posterior
+    a ~ dnorm(178, 20),
+    b ~ dlnorm(0,1),
+    sigma ~ dunif(0, 50)
+  ),
+  data = d2)
+# R.code 4.44
+precis(m4.3)
+
+plot(height ~ weight, data = d2, col = rangi2)
+post <- extract.samples(m4.3)
+a_map <- mean(post$a)
+b_map <- mean(post$b)
+curve(a_map + b_map*(x - xbar), add = TRUE)
+```
+
