@@ -113,6 +113,79 @@ Posterior predictions
 
 
 distance of line = residual
-STOPPED WATCHING VIDEO AT 36 min
 
+residual is a distribution, not a single value
+
+Statistical control
+- multiple linear regression answers questions: how is each predictor associated wiht outcome, once we know all the other predictors?
+  - uses model to build expected outcomes - not magic
+  - can't make strong causal inferences from averages; need data on individuals
   
+Counterfactual plots
+- goal: explore model implications for outcomes
+  - fix other predictor(s)
+  - compute predictions across values of predictor
+- compute for unobserved (impossible?) cases, hence 'counterfactual'
+
+posterior prediction checks
+- goal: compute implied predictions for observed cases
+  - check model fit 
+  - find model failures
+- always average over the posterior distribution
+  - using only posterior mean leads to overconfidence
+  - embrace the uncertainty
+
+masked association
+- sometimes association between outcome and predictor by another variable
+- need both variables to see influence of either
+- tends to arise when
+  - another predictor associated with outcome in opposite direction
+  - both predictors associated with one another
+- noise in predictors can also mask association (residual confounding)
+
+masked influence of milk on brain cortex
+```{r}
+data(milk)
+d <- milk
+pairs(~kcal.per.g + log(mass) +
+        neocortex.perc, data = d)
+```
+
+synthetic masked association
+```{r}
+# M -> K <- N
+# M <- U -> N
+
+n <- 100
+U <- rnorm(n)
+N <- rnorm(n, U)
+M <- rnorm(n, U)
+K <- rnorm(n, N - M)
+d_sim3 <- data.frame(K = K, N = N, M = M)
+```
+
+Cateforical variables
+- many predictors are discrete, unordered categories
+  - gender, region, species
+- how to use in regression?
+  - two approaches
+    - use dummy/indicator variables
+    - use index variables
+  - most automated software uses dummy variables
+  - usually easier to think and code with index variables
+
+Dummy (indicator) variables
+- variables that use 1 to indicate a category and 0 to indicate some other category
+- allow each category to have a unique intercept
+- coefficient is the dfference from baseline category
+- problems
+  - for k categories, need k - 1 dummy variables
+  - makes one of the categories a priori more uncertain than others
+
+Index variables
+```{r}
+# R code 5.36
+d$sex <- ifelse(d$male==1, 2, 1)
+str(d$sex)
+```
+
