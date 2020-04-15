@@ -1,0 +1,118 @@
+---
+title: "Lec 5 - Multivariate linear models"
+author: "sbsambado"
+date: "4/15/2020"
+output: html_document
+---
+
+Lec 5 by Richard McElreath based on his book Statistical Rethinking\
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Correlation is commonplace.
+- Waffle house density is correlated with divorce rate (i.e. correlation but not causation)
+
+Multiple regression models
+- the good
+  - reveal spurious correlation
+  - uncover masked association
+- the bad
+  - cause spurious correlation
+  - hide real association
+- learn basics of causal inference
+  - directed acyclic graphs
+  - forks, pipes, colliders
+  - backdoor criterion
+  
+  
+Spurious association
+
+Multiple regression 
+- want to know: what is value of predictor, once we know the other predictors?
+  i.e. what is value o f knowing marriage rate, once we already know the median age of marriage?
+  
+Directed acycling graphs (DAGs)
+- tools for causal models
+  - directed : arrows
+  - acyclic : arrows don't make loops
+  - graphs: nodes and edges
+- unlike statistical model (no direction), has causal implications
+
+
+Attempt to make a schematic (lol)
+(median age of marriage) A ----> M (marriage rate)
+                         |       |
+                         \       /
+                          > D   <  (divorce rate)
+        
+  Implications
+    (1) M is a function of A
+    (2) D is a function of A and M
+    (3) The total causal effect of A has two paths
+      (a) A -> M -> D (indirect)
+      (b) A -> D (direct)
+      
+path: from a variable to another variable
+
+
+Good DAGs
+- given association M <-> D, cannot tell difference between path a or b
+  - need conditional association: M <-> D| A
+  
+Priors
+- standardize variables (divorce rate, D; marriage rate Ml median age at marriage A)
+- expect alpha to be near zero [ alpha ~ Normal(0, 0.2)]
+- slopws should not produce impossibly strong relationships
+  Bm ~ Normal(0, 0.5)
+  Ba ~ Normal(0, 0.5)
+ 
+Prior predictive simulation 
+```{r}
+
+# flattest prior you could justify, not plausible though
+
+# R code 5.3
+library(rethinking)
+m5.1 <- quap( # age of marriage only D ~ A
+  alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bA * A ,
+    a ~ dnorm(0, 0.2),
+    bA ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ) , data = d)
+
+# R code 5.4
+
+set.seed(10)
+prior <- extract.prior(m5.1) # use rnorm to sample
+mu <- link(m5.1, post = prior, data = list(A = c(-2, 2)))
+plot(NULL, xlim = c(-2, 2))
+for(i in 1:50) lines(c(-2,2), mu[i,] , col = col.alpha('black', 0.4))
+```
+~ remember: linear means addative, no coefficient
+
+How to visualize multivariate models?
+
+Posterior predictions
+- lots of plotting options
+  1. predictor residual plots
+  2. counterfactual plots
+  3. posterior prediction plots
+
+
+1. Predictor residual plots
+- goal: show association of each predictor with outcome, 'controlling' for toher predictors
+- useful intuition
+- never analyze residuals!
+- recipe
+  1. regress predictor on other predictors
+  2. compute predictor residuals
+  3. regress outcome on residuals
+
+
+distance of line = residual
+STOPPED WATCHING VIDEO AT 36 min
+
+  
