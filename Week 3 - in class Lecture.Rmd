@@ -139,6 +139,17 @@ This is a stan program which has just about the minimum amount of complexity to 
 UNLIKE IN R, ALL STAN LINES MUST END WITH A ;  
 ```{r write_gaussian_stan}
 
+### personal notes
+
+## in stan you have to tell it what its bands are, etc.
+
+# what stan does and whatever mcmc algorithms do, for any given set parameters it caluclates posterior probability, which involves calculating likelihood
+# how it choses values matter 
+# ~ line calculates component of that posterior probability 
+# it does the same for wach data point, adds them up and gets total weight of those parameters
+
+
+
 # this is split into 3 blocks (data, parameter, model); this code is to be ran in one go 
 # Stan requires you to have end line with ;
 sink("model_gaussian.stan")
@@ -182,6 +193,8 @@ One weakness of stan is that the code you want to run has to be compiled into an
 ```{r compile_stan}
 gauss_model <- rstan::stan_model('model_gaussian.stan')
 ```
+
+
 ```{r run_stan}
 
 # we have to prepare some data to pass to stan. It expects a single dataframe, so we package togehter our height vector and our one other parameter, the number of datapoints. 
@@ -200,7 +213,8 @@ pairs(stanfit_gauss,pars=c("mu", pars="sigma") ) # plots histogram
 We can use the tools to quantify a posterior sample. Once extracted, you can do anything you like with them!
 R4.32-33
 ```{r posterior_samples}
-post <- extract(stanfit_gauss,pars=c("mu","sigma"))
+# if you have multiple packages missing, or give rstan :: extract function 
+post <- rstan ::extract(stanfit_gauss,pars=c("mu","sigma"))
 
 precis(post)
 
@@ -218,6 +232,10 @@ ggplot( data = d2 , aes(x=weight, y=height)) + geom_point()
 And now we write our next stan program. The additional step is that our predictor mu is now a function of other parameters.
 
 ```{r write_stan_linear}
+
+## another program block to transform parameters
+# the program has a data block, the data tells stan what the data commands and looksl ike
+
 sink("model_wheight.stan")
 cat("
     
@@ -227,26 +245,27 @@ cat("
   real weight[N];
 
 }
-parameters {
-  real alpha;
-  real beta;
+parameters { # mean of normal distribution is depended on predictor weight
+  real alpha; # intercept
+  real beta; # slope of the effect of weight on height
   real <lower=0, upper=50> sigma;
-}
+} # new block, transformed parameters
+# each data point, we will calculate mu, combine parameters alpha and beta to calculate likelihood rather than calculate this linearly
 transformed parameters{
 real mu[N]; // introduce our paramter that is a combination of other parameters
 for(i in 1:N){
-  mu[i] = alpha + beta * weight[i];
+  mu[i] = alpha + beta * weight[i]; # mu is dependent on other parameters
   }
 }
 
 model {
 //priors
-alpha ~ normal(178,100);
-beta ~ normal(0,10);
-sigma ~ uniform(0,50);
+alpha ~ normal(178,100); # prior
+beta ~ normal(0,10); # prior
+sigma ~ uniform(0,50); # prior
 for(i in 1:N){
-height[i] ~ normal(mu[i], sigma);
-}
+height[i] ~ normal(mu[i], sigma); # i element of mu's
+} # wether we accept or reject, allow sus to calculate posterior probablilty
 
 }
  
@@ -256,14 +275,14 @@ height[i] ~ normal(mu[i], sigma);
 sink()
 
 
-linear_model <- stan_model('model_wheight.stan')
+linear_model <- stan_model('model_wheight.stan') # compile stan file
 
 
 ```
 
 
 ```{r run_stan_linear}
-
+# passing weight through
 stan_data <- c(d2[c("height","weight")], list(N = length(d2$height)))
 
 
@@ -276,8 +295,13 @@ We can now look at the output. There can be a lot of it, because stan fit as man
 ```{r print_stan_linear}
 print(stanfit_linear)
 print(stanfit_linear , pars=c("alpha","beta","sigma"))
-pairs(stanfit_linear, pars=c("alpha","beta","sigma"))
+pairs(stanfit_linear, pars=c("alpha","beta","sigma")) # pairs function will plot
 
+# printing all transformed variables
+
+## okay if there's some covariance in parameters if its a high level model
+
+# this model doesnt cleayl tell me what alpha is vs beta is, doesnt allow individual parameters as well
 ```
 
 Let's get back to the chapter, we'll need to extract the samples from the fit and then we can treat them just the same as samples from any other procedure, like McElreath's map.
@@ -291,8 +315,12 @@ precis(m4.3)
 
 Becasue of the strong correlation between alpha and beta (higher intercepts must mean smaller slopes), we can center the data by transforming it. 
 
+
+If you have uninformative variables, the model can wander arround. aggregate result would be the same
 R4.42
 ```{r center_data}
+# recentering dta to find residual weight of mean
+# library(tidyverse)
 d2 <- 
   d2 %>%
   mutate(weight_c = weight - mean(weight))
@@ -319,15 +347,16 @@ pairs(stanfit_linear_centered, pars=c("alpha","beta","sigma"))
 How does our fit look? Plot the data with the fit
 ```{r plote_linear_fit}
 
-mean_params <- get_posterior_mean(stanfit_linear , pars=c("alpha","beta"))
+mean_params <- get_posterior_mean(stanfit_linear , pars=c("alpha","beta")) # to get table
 
   ggplot(d2,aes(x = weight, y = height)) +
-  geom_abline(intercept = mean_params[1,5], 
+  geom_abline(intercept = mean_params[1,5], # row 1 column 5
               slope     = mean_params[2,5]) +
   geom_point(shape = 1, size = 2, color = "royalblue") +
   theme_bw() +
   theme(panel.grid = element_blank())
-
+# what is the actual way of outcomes with this set of data
+  # can be used for power analyses
 ```
 
 
@@ -359,6 +388,92 @@ dens( mu_at_50, col=rangi2 , lwd=2, xlab="mu|weight=50")
 ```
 
 
+## Non-linear fit (quadratic)
+
+Here we just add one more term to our model for the quadratic component of the fit.
+```{r write_stan_quadratic}
+sink("model_quad.stan")
+cat("
+    
+  data {
+  int<lower=1> N;
+  real<lower=0> height[N];
+  real weight[N];
+
+}
+parameters {
+  real alpha; # parameter
+  real beta; # parameter
+  real gamma; # parameter
+  real <lower=0, upper=50> sigma;
+}
+transformed parameters{
+real mu[N]; // introduce our paramter that is a combination of other parameters
+for(i in 1:N){
+  mu[i] = alpha + beta * weight[i]+ gamma * weight[i]^2; # put particular formula here, transformation step
+  }
+}
+
+model {
+//priors
+alpha ~ normal(178,100);
+beta ~ normal(0,10);
+gamma ~ normal(0,10);
+sigma ~ uniform(0,50);
+for(i in 1:N){
+height[i] ~ normal(mu[i], sigma);
+}
+
+}
+ 
+    
+    
+    ",fill = TRUE)
+sink()
+
+
+quad_model <- stan_model('model_quad.stan')
+
+
+```
+
+
+We'll do the centering again here before running the stan model. Here we use the full dataset including young people, which makes the dataset have more curvature. You may also want to try running this with just the individuals >18 years old and compare your results. Since a linear fit works well for the >18yo you can ask how you could tell this from our fit. 
+
+```{r run_stan_quad}
+
+
+d3 <- 
+  d %>%
+  mutate(weight_c = weight - mean(weight))
+dcentered=select(d3,-weight) %>% rename(weight=weight_c)
+stan_data <- c(dcentered[c("height","weight")], list(N = length(dcentered$height)))
 
 
 
+stanfit_quad <- sampling(quad_model, data = stan_data, chains = 4,
+                      iter = 4000, seed = 2131231)
+```
+
+
+Again we print the output nad plot the posterior distributions. There is some correlation among the parmaeters, even after centering.
+```{r print_stan_quad, eval=FALSE}
+
+print(stanfit_quad , pars=c("alpha","beta","gamma","sigma"))
+pairs(stanfit_quad, pars=c("alpha","beta","gamma","sigma"))
+
+```
+
+```{r plot_quad_fit}
+
+mean_params <- get_posterior_mean(stanfit_quad , pars=c("alpha","beta","gamma"))
+
+d3<- mutate(d3,quad_fit = mean_params[1,5]+mean_params[2,5] * weight_c +mean_params[3,5]*weight_c^2 )
+
+  ggplot(d3,aes(x = weight, y = height)) +
+    geom_line(aes(x=weight, y=quad_fit))+
+    geom_point(shape = 1, size = 2, color = "royalblue") +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+```
